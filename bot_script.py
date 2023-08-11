@@ -111,9 +111,25 @@ def restart_app() -> None:
 # TODO: change static wait times to image recognition. ie: waiting for main menu can be characterized by certain things.
 
 ###################### Bot Game Behavior
-def keep_hand() -> bool:
+def is_game_connected() -> bool:
+    '''checks if we have an opening hand'''
+    bbox = [1076,856,1166,897]
+    img = PIL.ImageGrab.grab(bbox) # screenshot 
+    #img.show()
+    text = pytesseract.image_to_string(img)
+    return True if 'Keep' in text else False
+
+def keep_hand() -> None:
     '''keep starting hand'''
-    pass
+    pyautogui.press('space')
+
+def is_game_over() -> bool:
+    bbox = [1742,33,1884,65]
+    img = PIL.ImageGrab.grab(bbox) # screenshot 
+    #img.show()
+    text = pytesseract.image_to_string(img)
+    return ('Battlefield' in text)
+
 
 def is_my_turn() -> bool:
     '''true if my turn, false if opponents turn'''
@@ -124,7 +140,7 @@ def is_my_turn() -> bool:
     img = img.convert('L') # convert to grayscale to help text recog
     #img.show()
     turn_text = pytesseract.image_to_string(img)
-    print(turn_text)
+    #print(turn_text)
     return not ("Opponent's" in turn_text)
 
 def is_interact() -> bool:
@@ -137,6 +153,7 @@ def play_land() -> None:
 
 def play_spell() -> None:
     '''play a spell if possible'''
+    pass
 
 def resolve() -> None:
     '''resolves any interaction from opponent or random game actions'''
@@ -161,21 +178,41 @@ def main() -> None:
 
         queue()
         choose_deck(objective)
+        start_game()
+        
 
-    #     # TODO: GAME
-    #     # in_game = False
-    #     # while(in_game): # play a game
-    #     #     pass
+        for _ in range(10): # wait until loads, gonna need some error handling here too
+            time.sleep(12) # every 12 s check if the game has started
+            playing = is_game_connected()
+            if playing:
+                keep_hand() # keep starting hand
+                break
+            else:
+                pass
 
-        if is_quest_complete() == False: 
+        # one last check here, if playing still False after above iters then maybe a restart followed by a continue
+
+        while(playing): 
+            # check if game ended, if game ended then break out of loop
+            # whos turn
+            # bot turn
+            #   play a land
+            #   play as many cards as possible
+            #   all attack
+            # opp turn
+            #   press spacebar a ton
+            pass 
+
+        # TODO click through rewards and shit, totally forgot, does spacebar work?
+        if (is_quest_complete() is True): 
             restart_app() # reset the UI so a fresh quest is in the first position
         objective = read_quest()
 
-    #close("MTGA")
+    close("MTGA")
 
 
 def main_test():
     time.sleep(2)
-    print(is_my_turn())
+    print(is_game_over())
 
 main_test()
