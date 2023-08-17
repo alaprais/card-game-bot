@@ -14,6 +14,15 @@ pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files\\Tesseract-OCR\\tesse
 #TODO change all hardcoded pixel shit to relative coding? Or some sort of img recognition baseline file to run beforehand. 
 # That can then save all the file locations.
 
+#data_paths 
+WHITE_DECK_PATH = r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\white.png"
+BLUE_DECK_PATH = r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\blue.png"
+BLACK_DECK_PATH = r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\black.png"
+RED_DECK_PATH = r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\red.png"
+GREEN_DECK_PATH = r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\green.png"
+
+CHOOSE_ATTACKERS_PATH = r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\condition_checks\choose_attackers.png"
+
 def click(coords:tuple, double=False, time_after=.3) -> None:
     '''clicks at specified location. double clicks if double=True'''
 
@@ -33,8 +42,9 @@ def press_spacebar() -> None:
     time.sleep(.1)
     pyautogui.keyUp('space')
 
-def in_main_menu(): 
+def in_main_menu() -> bool: 
     '''screenshot experience track level thing to determine if in main menu or not'''
+
     #play_bbox = [1694,990,1774,1029]
     # [182,47,246,69] - profile
     bbox = [1415,926,1445,955]   
@@ -45,11 +55,13 @@ def in_main_menu():
 
 
 def read_quest() -> str:
-    '''reads first quest and returns objective'''
+    '''reads first quest, returns objective'''
 
     objectives_master_list = ['white','black','green','red','blue', 
-                                'lands','Attack', 'creature', 'Kill']
+                                'lands','Attack', 'creatures', 'Kill']
+    
     # TODO reroll functionality (separate func)
+
     quest1_text_bbox = [875,840,995,900]
     img = PIL.ImageGrab.grab(quest1_text_bbox) # screenshot of quest text
     #img.show()
@@ -59,17 +71,26 @@ def read_quest() -> str:
 
     if len(objective) > 1:
         objective = objective[np.random.randint(len(objective))] # randomly choose one of the two colors
+    else:
+        objective = objective[0]
 
     return objective
+
+def reroll_quest() -> None:
+    click((807,870)) # quest box
+    click((1138,614))  # confirm
 
 def choose_deck(objective) -> None:
     '''chooses deck based on objective. Must be on a screen with the deckboxes'''  # TODO could this use a img classifier
 
-    template_dict = {'white': r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\white.png", 
-                     'blue': r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\blue.png",
-                     'black': r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\black.png",
-                     'red': r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\red.png",
-                     'green': r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\objectives\green.png",
+    template_dict = {'white': WHITE_DECK_PATH, 
+                     'blue': BLUE_DECK_PATH,
+                     'black': BLACK_DECK_PATH,
+                     'red': RED_DECK_PATH,
+                     'green': GREEN_DECK_PATH,
+                     'lands': GREEN_DECK_PATH,
+                     'creatures': GREEN_DECK_PATH,
+                     'Attack': RED_DECK_PATH
                      }
     template = cv2.imread(template_dict[objective]) # img we want to match in current screen
     sct = PIL.ImageGrab.grab() # screenshot 
@@ -150,6 +171,29 @@ def is_game_over() -> bool:
     text = pytesseract.image_to_string(img)
     return ('Battlefield' in text)
 
+def is_survey() -> bool:
+    '''is it the end of game survey'''
+    bbox = [915,417,1260,463]
+    img = PIL.ImageGrab.grab(bbox)
+    text = pytesseract.image_to_string(img)
+    return 'fun in the match' in text
+
+def is_game_over_agg() -> bool:
+    out = False
+
+    if is_survey():
+        click((971,847)) # "skip"
+        time.sleep(2)
+        out = True
+
+    if is_game_over():
+        # click((1770,49)) click view battlefield ,  click((1770,49)) # click leave match
+        click((945,547)) # click center screen to leave game
+        time.sleep(np.random.randint(5,8)) # main menu load time 
+        out = True
+
+    return out
+
 def is_reward() -> bool:
     bbox = [1685, 987, 1786, 1027]
     img = PIL.ImageGrab.grab(bbox) # screenshot 
@@ -158,6 +202,8 @@ def is_reward() -> bool:
     print(text)
     return ('Claim' in text)
 
+    
+        
 ###################### Bot Game Behavior
 def is_opponents_turn() -> bool:
     '''true if my turn, false if opponents turn'''
@@ -205,7 +251,7 @@ def is_choose_attackers() -> bool:
     # sct = PIL.ImageGrab.grab(bbox) # screenshot 
     # sct = sct.convert('L') # grayscale
     # sct.save( r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\condition_checks\choose_attackers.png")
-    template = cv2.imread(r"C:\Users\Arnaud\projects\resources\card-game-bot-resources\condition_checks\choose_attackers.png") # img we want to match in current screen
+    template = cv2.imread(CHOOSE_ATTACKERS_PATH) # img we want to match in current screen
     sct = PIL.ImageGrab.grab(bbox) # screenshot  
     sct = sct.convert('L')
     sct = np.array(sct) # transformed to numpy array for cv2
@@ -216,51 +262,61 @@ def is_choose_attackers() -> bool:
     #print(res[0][0])
     return res[0][0] > threshold
 
-def get_life_total() -> int: 
-    '''gets life total'''
-    pass 
-
 ######################################### Script    
 def main() -> None:
 
     open("MTG Arena")
-    #time.sleep(np.random.randint(30,40)) # wait for app to open
-    while(not in_main_menu()):
+    
+    while(not in_main_menu()): # wait for app to open
         time.sleep(10)
 
     objective = read_quest()
-    while (len(objective) > 0): # while there are still quests to complete
+    if objective == 'Kill':
+        reroll_quest()
+        objective = read_quest() 
+        if objective == 'Kill': # supremely unlucky, two kill quests in a row, pack it up, try again tomorrow
+            close('MTGA')
+            exit() # kill the script
+    
+    while ( (len(objective) > 0) ): # while there are still quests to complete
         queue('historic')
         choose_deck(objective)
 
         playing = start_game(approx_wait_time=180,interval=5) # start game and keep hand
+        
         # TODO one last check here, 
         # #if playing still False after above iters then maybe a restart followed by a continue
 
+        hand_bbox = [209,915,1657,1080]
         while(playing): 
 
-            # need to check for did you have fun survey
-
-
-            # check if game ended, if game ended then break out of loop
-            if is_game_over():
-                # click((1770,49)) click view battlefield ,  click((1770,49)) # click leave match
-                click((945,547)) # click center screen to leave game
-                time.sleep(np.random.randint(5,8)) # main menu load time 
+            if is_game_over_agg():
                 playing = False
-                continue # forces next iter of while loop, which doesnt occur since playing will be false
+                continue
             
-            while(is_opponents_turn()):
-                # press spacebar every 1-3 seconds
-                press_spacebar()
-                time.sleep(np.random.randint(1,3))
-                
-            if not is_opponents_turn(): # if bot turn
-                # go through hand and play all cards possible
-                play_cards(passes=1)
-                while(not is_opponents_turn()): # then press space until its the opponents turn again
-                    press_spacebar()
-                    time.sleep(np.random.randint(1,3))
+            # sct of hand
+            sct = PIL.ImageGrab.grab(hand_bbox)
+            pixel_info =np.array(sct)
+            msk = (pixel_info[:,:,0] < 70) & (pixel_info[:,:,1] > 200) & (pixel_info[:,:,2] >200) # turquoise rgb vals
+            target_pixels = np.argwhere(msk)
+
+
+            while (len(target_pixels) > 200):
+                first_point = target_pixels[0]  # highest (from bottom of screen) point in sct with turquoise
+                x_origin, y_origin = hand_bbox[0:2] 
+                card_coord = (x_origin + first_point[1],y_origin + first_point[0]) # coords in full screen framework
+                card_coord = card_coord + (-100, 100) # move cursor to center-ish area of card
+                click(card_coord,double=True)
+                pyautogui.moveTo((115,43))
+
+                time.sleep(3)
+
+                sct = PIL.ImageGrab.grab(hand_bbox)
+                pixel_info =np.array(sct)
+                msk = (pixel_info[:,:,0] < 70) & (pixel_info[:,:,1] > 200) & (pixel_info[:,:,2] >200) # turquoise rgb vals
+                target_pixels = np.argwhere(msk)
+            
+            press_spacebar()
 
         # claim rewards
         while(is_reward()):
@@ -276,7 +332,5 @@ def main() -> None:
         objective = read_quest()
 
     close("MTGA")
-
-
 
 main()
