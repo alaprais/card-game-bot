@@ -178,15 +178,22 @@ def is_survey() -> bool:
     text = pytesseract.image_to_string(img)
     return 'fun in the match' in text
 
-def is_game_over_agg() -> bool:
+def is_game_over_agg(concede=False) -> bool:
     out = False
+
+    if concede:
+        pyautogui.keyDown('esc')
+        time.sleep(.01)
+        pyautogui.keyUp('esc')
+        click(970,633)
+        out = True
 
     if is_survey():
         click((971,847)) # "skip"
         time.sleep(2)
         out = True
 
-    if is_game_over():
+    elif is_game_over():
         # click((1770,49)) click view battlefield ,  click((1770,49)) # click leave match
         click((945,547)) # click center screen to leave game
         time.sleep(np.random.randint(5,8)) # main menu load time 
@@ -288,9 +295,10 @@ def main() -> None:
         # #if playing still False after above iters then maybe a restart followed by a continue
 
         hand_bbox = [209,915,1657,1080]
+        concede_flag = False
         while(playing): 
 
-            if is_game_over_agg():
+            if is_game_over_agg(concede=concede_flag):
                 playing = False
                 continue
             
@@ -317,6 +325,12 @@ def main() -> None:
                 target_pixels = np.argwhere(msk)
             
             press_spacebar()
+
+
+            # TODO if only one card in hand concede
+            # if(get_handsize() < 2):
+            #     concede_flag = True
+
 
         # claim rewards
         while(is_reward()):
